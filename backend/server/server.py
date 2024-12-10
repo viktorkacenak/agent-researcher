@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from gpt_researcher import GPTResearcher  # Add this import at the top with other imports
 
 from backend.server.websocket_manager import WebSocketManager
 from backend.server.server_utils import (
