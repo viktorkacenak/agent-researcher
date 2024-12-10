@@ -110,3 +110,33 @@ async def websocket_endpoint(websocket: WebSocket):
         await handle_websocket_communication(websocket, manager)
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
+
+@app.post("/api/research")
+async def create_research(request: ResearchRequest):
+    try:
+        researcher = GPTResearcher(
+            query=request.task,
+            report_type=request.report_type
+        )
+        
+        # Conduct research
+        await researcher.conduct_research()
+        
+        # Generate report
+        report = await researcher.write_report()
+        
+        # Get additional information
+        sources = researcher.get_source_urls()
+        costs = researcher.get_costs()
+        
+        return {
+            "status": "success",
+            "report": report,
+            "sources": sources,
+            "costs": costs
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
