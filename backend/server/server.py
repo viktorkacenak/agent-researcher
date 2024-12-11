@@ -66,8 +66,7 @@ app.add_middleware(
 
 # Constants
 DOC_PATH = os.getenv("DOC_PATH", "./my-docs")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://hook.eu1.make.com/qdzrmrc77ggt1psu88gyi4rqk7pkleal
-")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://hook.eu1.make.com/qdzrmrc77ggt1psu88gyi4rqk7pkleal")
 
 # Startup event
 
