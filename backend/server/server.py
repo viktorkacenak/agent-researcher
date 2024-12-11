@@ -2,7 +2,7 @@ import json
 import os
 from typing import Dict, List
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, File, UploadFile, Header
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, File, UploadFile, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -115,19 +115,16 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
 
-@app.post("/api/research")
-async def create_research(request: ResearchRequest):
+async def process_research_in_background(request: ResearchRequest):
     try:
         researcher = GPTResearcher(
             query=request.task,
             report_type=request.report_type
         )
         
-        # Start research asynchronously
         await researcher.conduct_research()
         report = await researcher.write_report()
         
-        # Prepare webhook payload
         webhook_payload = {
             "status": "success",
             "record_id": request.record_id,
@@ -138,7 +135,6 @@ async def create_research(request: ResearchRequest):
             "report_type": request.report_type
         }
         
-        # Send to webhook using static URL
         async with AsyncClient() as client:
             webhook_response = await client.post(
                 WEBHOOK_URL,
@@ -146,9 +142,7 @@ async def create_research(request: ResearchRequest):
                 timeout=30.0
             )
             webhook_response.raise_for_status()
-        
-        return {"status": "success", "message": "Research completed and sent to webhook"}
-    
+            
     except Exception as e:
         error_payload = {
             "status": "error",
@@ -162,5 +156,15 @@ async def create_research(request: ResearchRequest):
                 await client.post(WEBHOOK_URL, json=error_payload)
         except Exception:
             pass
-            
-        return {"status": "error", "message": "Research failed. Check webhook for details"}
+
+@app.post("/api/research")
+async def create_research(request: ResearchRequest, background_tasks: BackgroundTasks):
+    # Add the research task to background tasks
+    background_tasks.add_task(process_research_in_background, request)
+    
+    # Return immediately with acceptance message
+    return {
+        "status": "accepted", 
+        "message": "Research task started. Results will be sent to webhook.",
+        "record_id": request.record_id
+    }
