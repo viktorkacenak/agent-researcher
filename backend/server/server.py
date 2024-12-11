@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from gpt_researcher import GPTResearcher  # Add this import at the top with other imports
+from httpx import AsyncClient  # Add this import at the top
 
 from backend.server.websocket_manager import WebSocketManager
 from backend.server.server_utils import (
@@ -23,6 +24,7 @@ class ResearchRequest(BaseModel):
     task: str
     report_type: str
     agent: str
+    record_id: str
 
 
 class ConfigRequest(BaseModel):
@@ -64,6 +66,8 @@ app.add_middleware(
 
 # Constants
 DOC_PATH = os.getenv("DOC_PATH", "./my-docs")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://hook.eu1.make.com/qdzrmrc77ggt1psu88gyi4rqk7pkleal
+")
 
 # Startup event
 
@@ -120,24 +124,44 @@ async def create_research(request: ResearchRequest):
             report_type=request.report_type
         )
         
-        # Conduct research
+        # Start research asynchronously
         await researcher.conduct_research()
-        
-        # Generate report
         report = await researcher.write_report()
         
-        # Get additional information
-        sources = researcher.get_source_urls()
-        costs = researcher.get_costs()
-        
-        return {
+        # Prepare webhook payload
+        webhook_payload = {
             "status": "success",
+            "record_id": request.record_id,
             "report": report,
-            "sources": sources,
-            "costs": costs
+            "sources": researcher.get_source_urls(),
+            "costs": researcher.get_costs(),
+            "original_task": request.task,
+            "report_type": request.report_type
         }
+        
+        # Send to webhook using static URL
+        async with AsyncClient() as client:
+            webhook_response = await client.post(
+                WEBHOOK_URL,
+                json=webhook_payload,
+                timeout=30.0
+            )
+            webhook_response.raise_for_status()
+        
+        return {"status": "success", "message": "Research completed and sent to webhook"}
+    
     except Exception as e:
-        return {
+        error_payload = {
             "status": "error",
-            "message": str(e)
+            "message": str(e),
+            "record_id": request.record_id,
+            "original_task": request.task
         }
+        
+        try:
+            async with AsyncClient() as client:
+                await client.post(WEBHOOK_URL, json=error_payload)
+        except Exception:
+            pass
+            
+        return {"status": "error", "message": "Research failed. Check webhook for details"}
