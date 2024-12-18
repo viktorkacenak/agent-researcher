@@ -16,7 +16,6 @@ from backend.server.server_utils import (
     update_environment_variables, handle_file_upload, handle_file_deletion,
     execute_multi_agents, handle_websocket_communication
 )
-from backend.chat.chat import ChatAgentWithMemory
 
 # Models
 
@@ -112,13 +111,9 @@ async def delete_file(filename: str):
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        async with ChatAgentWithMemory(report="", config_path="", headers={}) as agent:
-            await handle_websocket_communication(websocket, manager, agent)
+        await handle_websocket_communication(websocket, manager)
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
-    finally:
-        if 'agent' in locals():
-            await agent.cleanup()
 
 async def process_research_in_background(request: ResearchRequest):
     try:
