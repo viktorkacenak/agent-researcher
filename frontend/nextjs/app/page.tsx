@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { startLanggraphResearch } from '../components/Langgraph/Langgraph';
-import findDifferences from '../helpers/findDifferences';
-import { Data, ChatBoxSettings, QuestionData } from '../types/data';
-import { preprocessOrderedData } from '../utils/dataProcessing';
-import { ResearchResults } from '../components/ResearchResults';
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { startLanggraphResearch } from "../components/Langgraph/Langgraph";
+import findDifferences from "../helpers/findDifferences";
+import { Data, ChatBoxSettings, QuestionData } from "../types/data";
+import { preprocessOrderedData } from "../utils/dataProcessing";
+import { ResearchResults } from "../components/ResearchResults";
 
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
@@ -20,10 +20,10 @@ export default function Home() {
   const [showResult, setShowResult] = useState(false);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [chatBoxSettings, setChatBoxSettings] = useState<ChatBoxSettings>({ 
-    report_source: 'web', 
-    report_type: 'research_report', 
-    tone: 'Objective' 
+  const [chatBoxSettings, setChatBoxSettings] = useState<ChatBoxSettings>({
+    report_source: "web",
+    report_type: "research_report",
+    tone: "Objective",
   });
   const [question, setQuestion] = useState("");
   const [orderedData, setOrderedData] = useState<Data[]>([]);
@@ -40,12 +40,14 @@ export default function Home() {
     setAnswer,
     setLoading,
     setShowHumanFeedback,
-    setQuestionForHuman
+    setQuestionForHuman,
   );
 
   const handleFeedbackSubmit = (feedback: string | null) => {
     if (socket) {
-      socket.send(JSON.stringify({ type: 'human_feedback', content: feedback }));
+      socket.send(
+        JSON.stringify({ type: "human_feedback", content: feedback }),
+      );
     }
     setShowHumanFeedback(false);
   };
@@ -58,9 +60,9 @@ export default function Home() {
       setPromptValue("");
       setAnswer("");
 
-      const questionData: QuestionData = { type: 'question', content: message };
-      setOrderedData(prevOrder => [...prevOrder, questionData]);
-      
+      const questionData: QuestionData = { type: "question", content: message };
+      setOrderedData((prevOrder) => [...prevOrder, questionData]);
+
       socket.send(`chat${JSON.stringify({ message })}`);
     }
   };
@@ -71,25 +73,48 @@ export default function Home() {
     setQuestion(newQuestion);
     setPromptValue("");
     setAnswer("");
-    setOrderedData((prevOrder) => [...prevOrder, { type: 'question', content: newQuestion }]);
+    setOrderedData((prevOrder) => [
+      ...prevOrder,
+      { type: "question", content: newQuestion },
+    ]);
 
-    const storedConfig = localStorage.getItem('apiVariables');
+    const storedConfig = localStorage.getItem("apiVariables");
     const apiVariables = storedConfig ? JSON.parse(storedConfig) : {};
     const langgraphHostUrl = apiVariables.LANGGRAPH_HOST_URL;
 
-    if (chatBoxSettings.report_type === 'multi_agents' && langgraphHostUrl) {
-      let { streamResponse, host, thread_id } = await startLanggraphResearch(newQuestion, chatBoxSettings.report_source, langgraphHostUrl);
+    if (chatBoxSettings.report_type === "multi_agents" && langgraphHostUrl) {
+      let { streamResponse, host, thread_id } = await startLanggraphResearch(
+        newQuestion,
+        chatBoxSettings.report_source,
+        langgraphHostUrl,
+      );
       const langsmithGuiLink = `https://smith.langchain.com/studio/thread/${thread_id}?baseUrl=${host}`;
-      setOrderedData((prevOrder) => [...prevOrder, { type: 'langgraphButton', link: langsmithGuiLink }]);
+      setOrderedData((prevOrder) => [
+        ...prevOrder,
+        { type: "langgraphButton", link: langsmithGuiLink },
+      ]);
 
       let previousChunk = null;
       for await (const chunk of streamResponse) {
-        if (chunk.data.report != null && chunk.data.report != "Full report content here") {
-          setOrderedData((prevOrder) => [...prevOrder, { ...chunk.data, output: chunk.data.report, type: 'report' }]);
+        if (
+          chunk.data.report != null &&
+          chunk.data.report != "Full report content here"
+        ) {
+          setOrderedData((prevOrder) => [
+            ...prevOrder,
+            { ...chunk.data, output: chunk.data.report, type: "report" },
+          ]);
           setLoading(false);
         } else if (previousChunk) {
           const differences = findDifferences(previousChunk, chunk);
-          setOrderedData((prevOrder) => [...prevOrder, { type: 'differences', content: 'differences', output: JSON.stringify(differences) }]);
+          setOrderedData((prevOrder) => [
+            ...prevOrder,
+            {
+              type: "differences",
+              content: "differences",
+              output: JSON.stringify(differences),
+            },
+          ]);
         }
         previousChunk = chunk;
       }
@@ -107,9 +132,9 @@ export default function Home() {
 
   const handleClickSuggestion = (value: string) => {
     setPromptValue(value);
-    const element = document.getElementById('input-area');
+    const element = document.getElementById("input-area");
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -139,17 +164,17 @@ export default function Home() {
     setShowResult(false);
     setPromptValue("");
     setIsStopped(false);
-    
+
     // Clear previous research data
     setQuestion("");
     setAnswer("");
     setOrderedData([]);
     setAllLogs([]);
-    
+
     // Reset feedback states
     setShowHumanFeedback(false);
     setQuestionForHuman(false);
-    
+
     // Clean up connections
     if (socket) {
       socket.close();
@@ -163,11 +188,15 @@ export default function Home() {
    */
   useEffect(() => {
     const groupedData = preprocessOrderedData(orderedData);
-    const statusReports = ["agent_generated", "starting_research", "planning_research"];
-    
+    const statusReports = [
+      "agent_generated",
+      "starting_research",
+      "planning_research",
+    ];
+
     const newLogs = groupedData.reduce((acc: any[], data) => {
       // Process accordion blocks (grouped data)
-      if (data.type === 'accordionBlock') {
+      if (data.type === "accordionBlock") {
         const logs = data.items.map((item: any, subIndex: any) => ({
           header: item.content,
           text: item.output,
@@ -175,29 +204,34 @@ export default function Home() {
           key: `${item.type}-${item.content}-${subIndex}`,
         }));
         return [...acc, ...logs];
-      } 
+      }
       // Process status reports
       else if (statusReports.includes(data.content)) {
-        return [...acc, {
-          header: data.content,
-          text: data.output,
-          metadata: data.metadata,
-          key: `${data.type}-${data.content}`,
-        }];
+        return [
+          ...acc,
+          {
+            header: data.content,
+            text: data.output,
+            metadata: data.metadata,
+            key: `${data.type}-${data.content}`,
+          },
+        ];
       }
       return acc;
     }, []);
-    
+
     setAllLogs(newLogs);
   }, [orderedData]);
 
   const handleScroll = useCallback(() => {
     // Calculate if we're near bottom (within 100px)
     const scrollPosition = window.scrollY + window.innerHeight;
-    const nearBottom = scrollPosition >= document.documentElement.scrollHeight - 100;
-    
+    const nearBottom =
+      scrollPosition >= document.documentElement.scrollHeight - 100;
+
     // Show button if we're not near bottom and page is scrollable
-    const isPageScrollable = document.documentElement.scrollHeight > window.innerHeight;
+    const isPageScrollable =
+      document.documentElement.scrollHeight > window.innerHeight;
     setShowScrollButton(isPageScrollable && !nearBottom);
   }, []);
 
@@ -211,35 +245,28 @@ export default function Home() {
       resizeObserver.observe(mainContentRef.current);
     }
 
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
-    
+    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", handleScroll);
+
     return () => {
       if (mainContentRef.current) {
         resizeObserver.unobserve(mainContentRef.current);
       }
       resizeObserver.disconnect();
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
     };
   }, [handleScroll]);
 
   const scrollToBottom = () => {
     window.scrollTo({
       top: document.documentElement.scrollHeight,
-      behavior: 'smooth'
+      behavior: "smooth",
     });
   };
 
   return (
     <>
-      <Header 
-        loading={loading}
-        isStopped={isStopped}
-        showResult={showResult}
-        onStop={handleStopResearch}
-        onNewResearch={handleStartNewResearch}
-      />
       <main ref={mainContentRef} className="min-h-[100vh] pt-[120px]">
         {!showResult && (
           <Hero
@@ -252,7 +279,7 @@ export default function Home() {
         {showResult && (
           <div className="flex h-full w-full grow flex-col justify-between">
             <div className="container w-full space-y-2">
-              <div className="container space-y-2 task-components">
+              <div className="task-components container space-y-2">
                 <ResearchResults
                   orderedData={orderedData}
                   answer={answer}
@@ -292,25 +319,28 @@ export default function Home() {
       {showScrollButton && showResult && (
         <button
           onClick={scrollToBottom}
-          className="fixed bottom-8 right-8 flex items-center justify-center w-12 h-12 text-white bg-[rgb(168,85,247)] rounded-full hover:bg-[rgb(147,51,234)] transform hover:scale-105 transition-all duration-200 shadow-lg z-50"
+          className="fixed bottom-8 right-8 z-50 flex h-12 w-12 transform items-center justify-center rounded-full bg-[rgb(168,85,247)] text-white shadow-lg transition-all duration-200 hover:scale-105 hover:bg-[rgb(147,51,234)]"
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-6 w-6" 
-            fill="none" 
-            viewBox="0 0 24 24" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 14l-7 7m0 0l-7-7m7 7V3"
             />
           </svg>
         </button>
       )}
-      <Footer setChatBoxSettings={setChatBoxSettings} chatBoxSettings={chatBoxSettings} />
+      <Footer
+        setChatBoxSettings={setChatBoxSettings}
+        chatBoxSettings={chatBoxSettings}
+      />
     </>
   );
 }

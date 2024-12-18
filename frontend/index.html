@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="/site/styles.css" />
     <style>
         .avatar {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
         }
 
@@ -40,24 +40,8 @@
 
 <body>
 
-    <section class="landing">
-        <div class="max-w-5xl mx-auto text-center">
-            <h1 class="text-4xl font-extrabold mx-auto lg:text-7xl">
-                Say Goodbye to <br>
-                <span
-                    style="background-image:linear-gradient(to right, #9867F0, #ED4E50); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Hours
-                    of Research</span>
-            </h1>
-            <p class="max-w-6xl mx-auto text-gray-600 mt-8" style="font-size:20px">
-                Say Hello to <b>GPT Researcher</b>, your AI mate for rapid insights and comprehensive research. <br>
-                GPT Researcher takes care of everything from accurate source gathering and organization of research results to generation of customized reports with citations.
-            </p>
-            <a href="#form" class="btn btn-primary">Get Started</a>
-        </div>
-    </section>
-
     <main class="container" id="form">
-        <div class="agent-item"><img src="/static/gptr-logo.png" class="avatar" alt="Auto Agent"></div>
+        <div class="agent-item"><img src="/static/symbol-red.png" class="avatar" alt="Auto Agent" width="40px" height="40px"></div>
         <form method="POST" class="mt-3" onsubmit="GPTResearcher.startResearch(); return false;">
             <div class="form-group">
                 <label for="task" class="agent-question">What would you like me to research next?</label>
@@ -153,15 +137,6 @@
             </div>
         </div>
     </main>
-
-    <footer>
-        <p>
-            <a target="_blank" href="https://gptr.dev">Homepage</a> |
-            <a target="_blank" href="https://github.com/assafelovic/gpt-researcher">GitHub</a> |
-            <a target="_blank" href="https://discord.gg/spBgZmm3Xe">Discord</a>
-        </p>
-        <p>GPT Researcher &copy; 2024</p>
-    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
     <script src="/site/scripts.js"></script>
