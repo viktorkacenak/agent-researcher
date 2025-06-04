@@ -2,6 +2,7 @@ import json
 import os
 from typing import Dict, List
 import time
+import httpx
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, File, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,6 +52,7 @@ class ResearchRequest(BaseModel):
     repo_name: str
     branch_name: str
     generate_in_background: bool = True
+    webhook_url: str | None = None
 
 
 class ConfigRequest(BaseModel):
@@ -137,27 +139,81 @@ async def write_report(research_request: ResearchRequest, research_id: str = Non
         return_researcher=True
     )
 
-    docx_path = await write_md_to_word(report_information[0], research_id)
-    pdf_path = await write_md_to_pdf(report_information[0], research_id)
-    if research_request.report_type != "multi_agents":
-        report, researcher = report_information
-        response = {
+    actual_markdown_report = ""
+    researcher_object_for_details = None
+
+    # Determine the structure of report_information and extract markdown
+    if research_request.report_type == "multi_agents":
+        if isinstance(report_information, str):
+            actual_markdown_report = report_information
+        elif isinstance(report_information, dict) and "report" in report_information: # Based on multi_agents.main.run_research_task
+            actual_markdown_report = report_information.get("report", "")
+        else:
+            logger.error(f"Unexpected structure for multi_agents report_information: {type(report_information)}")
+            actual_markdown_report = "Error: Could not extract multi_agents report content."
+    elif isinstance(report_information, tuple) and len(report_information) == 2:
+        actual_markdown_report = report_information[0]
+        researcher_object_for_details = report_information[1]
+        if not isinstance(actual_markdown_report, str): # Ensure it's a string
+             logger.error(f"Report content is not a string: {type(actual_markdown_report)}")
+             actual_markdown_report = "Error: Report content is not in expected string format."
+    else:
+        logger.error(f"Unexpected structure for report_information: {type(report_information)}")
+        actual_markdown_report = "Error: Could not extract report content."
+
+
+    # Send to webhook if URL is provided and markdown content is available and not an error message
+    if research_request.webhook_url and actual_markdown_report and not actual_markdown_report.startswith("Error:"):
+        try:
+            webhook_payload = {
+                "research_id": research_id,
+                "task": research_request.task,
+                "report_type": research_request.report_type,
+                "markdown_report": actual_markdown_report
+            }
+            async with httpx.AsyncClient() as client:
+                response = await client.post(research_request.webhook_url, json=webhook_payload, timeout=10.0)
+                response.raise_for_status()
+                logger.info(f"Successfully sent report to webhook: {research_request.webhook_url} for research_id: {research_id}")
+        except httpx.RequestError as e:
+            logger.error(f"HTTP error sending report to webhook {research_request.webhook_url} for research_id {research_id}: {e}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred when sending report to webhook {research_request.webhook_url} for research_id {research_id}: {e}")
+
+    # Continue with existing logic for DOCX, PDF, and constructing the main API response
+    docx_path = ""
+    pdf_path = ""
+
+    if actual_markdown_report and not actual_markdown_report.startswith("Error:"):
+        # The first argument to write_md_to_word and write_md_to_pdf should be the markdown string
+        docx_path = await write_md_to_word(actual_markdown_report, research_id)
+        pdf_path = await write_md_to_pdf(actual_markdown_report, research_id)
+
+    response_payload = {}
+    if research_request.report_type != "multi_agents" and researcher_object_for_details:
+        response_payload = {
             "research_id": research_id,
             "research_information": {
-                "source_urls": researcher.get_source_urls(),
-                "research_costs": researcher.get_costs(),
-                "visited_urls": list(researcher.visited_urls),
-                "research_images": researcher.get_research_images(),
-                # "research_sources": researcher.get_research_sources(),  # Raw content of sources may be very large
+                "source_urls": researcher_object_for_details.get_source_urls(),
+                "research_costs": researcher_object_for_details.get_costs(),
+                "visited_urls": list(researcher_object_for_details.visited_urls),
+                "research_images": researcher_object_for_details.get_research_images(),
             },
-            "report": report,
+            "report": actual_markdown_report, # Return the actual markdown
             "docx_path": docx_path,
             "pdf_path": pdf_path
         }
-    else:
-        response = { "research_id": research_id, "report": "", "docx_path": docx_path, "pdf_path": pdf_path }
-
-    return response
+    else: # Covers multi_agents or cases where researcher_object_for_details might be None
+          # For multi_agents, the main 'report' field in the API response was previously empty,
+          # now it will contain the markdown report if successfully extracted.
+        response_payload = {
+            "research_id": research_id,
+            "report": actual_markdown_report,
+            "docx_path": docx_path,
+            "pdf_path": pdf_path
+        }
+    
+    return response_payload
 
 @app.post("/report/")
 async def generate_report(research_request: ResearchRequest, background_tasks: BackgroundTasks):
